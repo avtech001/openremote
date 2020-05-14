@@ -22,6 +22,8 @@ export class OrRuleFormPushNotification extends translate(i18next)(LitElement) {
         return css`
             or-input {
                 margin-bottom: 20px;
+                min-width: 420px;
+                width: 100%;
             }
         `
     }
@@ -38,7 +40,7 @@ export class OrRuleFormPushNotification extends translate(i18next)(LitElement) {
             <div style="display:grid">
                 <or-input value="${title}" 
                     @or-input-changed="${(e: OrInputChangedEvent) => this.setActionNotificationName(e.detail.value, "title")}" 
-                    .label="${i18next.t("title")}" 
+                    .label="${i18next.t("subject")}" 
                     type="${InputType.TEXT}" 
                     required 
                     placeholder=" "></or-input>
@@ -46,33 +48,32 @@ export class OrRuleFormPushNotification extends translate(i18next)(LitElement) {
                 <or-input value="${body}" 
                     @or-input-changed="${(e: OrInputChangedEvent) => this.setActionNotificationName(e.detail.value, "body")}" 
                     .label="${i18next.t("message")}" 
-                    type="${InputType.TEXT}" 
+                    type="${InputType.TEXTAREA}" 
                     required 
                     placeholder=" " ></or-input>
-
                 <or-input value="${actionUrl}" 
                     @or-input-changed="${(e: OrInputChangedEvent) => this.setActionNotificationName(e.detail.value, "action.url")}" 
-                    .label="${i18next.t("Te openen website adres")}" 
+                    .label="${i18next.t("openWebsiteUrl")}" 
                     type="${InputType.TEXT}" 
                     required 
                     placeholder=" "></or-input>
 
-                <or-input value="${buttons && buttons[0] && buttons[0].action?.openInBrowser ? buttons[0].action?.openInBrowser : ""}" 
+                <or-input value="${buttons && buttons[0] && buttons[0].action &&  buttons[0].action.openInBrowser ? buttons[0].action.openInBrowser : ""}" 
                     @or-input-changed="${(e: OrInputChangedEvent) => this.setActionNotificationName(e.detail.value, "buttons.0.action.openInBrowser")}" 
-                    .label="${i18next.t("Open in externe website")}" 
+                    .label="${i18next.t("openInBrowser")}" 
                     type="${InputType.SWITCH}" 
                     required 
                     placeholder=" "></or-input>  
                 
                 <or-input value="${buttons && buttons[0] && buttons[0].title ? buttons[0].title : ""}" 
                     @or-input-changed="${(e: OrInputChangedEvent) => this.setActionNotificationName(e.detail.value, "buttons.0.title")}" 
-                    .label="${i18next.t("Tekst voor actie knop")}" 
+                    .label="${i18next.t("buttonTextConfirm")}" 
                     type="${InputType.TEXT}" 
                     required 
                     placeholder=" "></or-input>
                 <or-input value="${buttons && buttons[1] && buttons[1].title ? buttons[1].title : ""}" 
                     @or-input-changed="${(e: OrInputChangedEvent) => this.setActionNotificationName(e.detail.value, "buttons.1.title")}" 
-                    .label="${i18next.t("Tekst voor negeerknop")}" 
+                    .label="${i18next.t("buttonTextDecline")}" 
                     type="${InputType.TEXT}" 
                     required 
                     placeholder=" "></or-input>

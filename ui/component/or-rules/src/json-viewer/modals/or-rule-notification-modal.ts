@@ -34,7 +34,9 @@ export class OrRuleNotificationModal extends translate(i18next)(LitElement) {
     @property({type: Object, attribute: false})
     public action!: RuleActionNotification;
 
-
+    @property({type: String})
+    public title = "message";
+    
     @property({type: Object})
     public query?: AssetQuery;
     
@@ -50,7 +52,9 @@ export class OrRuleNotificationModal extends translate(i18next)(LitElement) {
 
     renderDialogHTML(action:RuleActionNotification) {
         const dialog: OrMwcDialog = this.shadowRoot!.getElementById("notification-modal") as OrMwcDialog;
-        const slot = this.shadowRoot?.getElementById('notification-form-slot');
+        if(!this.shadowRoot) return
+
+        const slot = this.shadowRoot.getElementById('notification-form-slot');
         if (dialog) {
             dialog.dialogContent = html`${slot}`;
         }
@@ -62,19 +66,18 @@ export class OrRuleNotificationModal extends translate(i18next)(LitElement) {
 
         const notificationPickerModalActions: DialogAction[] = [
             {
-                actionName: "ok",
-                default: true,
-                content: html`<or-input class="button" .type="${InputType.BUTTON}" .label="${i18next.t("ok")}"></or-input>`,
-                action: () => {
-                }
-            },
-            {
                 actionName: "cancel",
                 content: html`<or-input class="button" .type="${InputType.BUTTON}" .label="${i18next.t("cancel")}"></or-input>`,
                 action: () => {
                     // Nothing to do here
                 }
             },
+            {
+                actionName: "ok",
+                content: html`<or-input class="button" .type="${InputType.BUTTON}" .label="${i18next.t("ok")}"></or-input>`,
+                action: () => {
+                }
+            }
         ];
        
       
@@ -87,7 +90,7 @@ export class OrRuleNotificationModal extends translate(i18next)(LitElement) {
 
         return html`
             <or-input .type="${InputType.BUTTON}" .label="${i18next.t("message")}" @click="${notificationPickerModalOpen}"></or-input>
-            <or-mwc-dialog id="notification-modal" dialogTitle="message" .dialogActions="${notificationPickerModalActions}">
+            <or-mwc-dialog id="notification-modal" dialogTitle="${this.title}" .dialogActions="${notificationPickerModalActions}">
                 <slot id="notification-form-slot"></slot>
             </or-mwc-dialog>
         `

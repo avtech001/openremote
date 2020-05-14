@@ -23,6 +23,8 @@ export class OrRuleFormMessage extends translate(i18next)(LitElement) {
         return css`
             or-input {
                 margin-bottom: 20px;
+                min-width: 420px;
+                width: 100%;
             }
         `
     }
@@ -32,7 +34,7 @@ export class OrRuleFormMessage extends translate(i18next)(LitElement) {
         
         return html`
             <div style="display:grid">
-                <or-input value="${message && message.subject ?  message.subject : ""}" @or-input-changed="${(e: OrInputChangedEvent) => this.setActionNotificationName(e.detail.value, "subject")}" .label="${i18next.t("title")}" type="${InputType.TEXT}" required placeholder=" "></or-input>
+                <or-input value="${message && message.subject ?  message.subject : ""}" @or-input-changed="${(e: OrInputChangedEvent) => this.setActionNotificationName(e.detail.value, "subject")}" .label="${i18next.t("subject")}" type="${InputType.TEXT}" required placeholder=" "></or-input>
                 <or-input value="${message && message.html ? message.html : ""}" @or-input-changed="${(e: OrInputChangedEvent) => this.setActionNotificationName(e.detail.value, "html")}" .label="${i18next.t("message")}" type="${InputType.TEXTAREA}" required placeholder=" " ></or-input>
             </div>
         `

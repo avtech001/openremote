@@ -110,6 +110,17 @@
   "attributes": "Attributs",
   "info": "Info",
   "logs": "Journaux",
+  "email": "Email",
+  "push-notification":"Push notification",
+  "subject": "Subject",
+  "openWebsiteUrl": "to open website",
+  "openInBrowser": "Open in browser (for external websites)",
+  "buttonTextConfirm": "Text for action button",
+  "buttonTextDecline": "Text for decline button",
+  "custom": "Custom",
+  "tenant": "Tenant",
+  "tenant_plural": "Tenants",
+  "user_plural": "Users",
   "chooseLanguage": "Choisissez la langue",
   "addRemoveAttributes": "Add/remove attributes",
   "attributeValueType": {
@@ -120,7 +131,7 @@
     "CURRENCY": "%.1f",
     "SPEED": "%.1f",
     "CHARGE": "%.1f",
-    "ENERGY": "%.1f",
+    "ENERGY": "%.3f",
     "CO2": "%.1f",
     "HUMIDITY": "%.1f"
   }

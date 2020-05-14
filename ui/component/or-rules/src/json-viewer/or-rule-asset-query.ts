@@ -32,7 +32,7 @@ import manager, {AssetModelUtil, Util} from "@openremote/core";
 import i18next from "i18next";
 import {buttonStyle} from "../style";
 import {OrRulesJsonRuleChangedEvent} from "./or-rule-json-viewer";
-import "./or-rule-radial-modal";
+import "./modals/or-rule-radial-modal";
 import {translate} from "@openremote/or-translate";
 
 import {DialogAction, OrMwcDialog, OrMwcDialogOpenedEvent} from "@openremote/or-mwc-components/dist/or-mwc-dialog";
