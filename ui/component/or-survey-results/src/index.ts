@@ -24,6 +24,9 @@ class OrSurveyResults extends LitElement {
     @property({type: Object})
     public survey?: Asset;
 
+    @property({type: Array})
+    public questions?: Asset[];
+
     @property({type: String})
     public surveyId?: string;
 
@@ -32,7 +35,7 @@ class OrSurveyResults extends LitElement {
 
     @property({type: Number})
     public maxAmount?: number;
-
+    
     protected _initCallback?: EventCallback;
 
     protected firstUpdated(_changedProperties: PropertyValues): void {
@@ -166,6 +169,18 @@ class OrSurveyResults extends LitElement {
             console.error("Error: " + reason);
         });
 
+        const surveyQuestQuery: AssetQuery = {
+            parents: [{id:surveyId}]
+        };
+
+        manager.rest.api.AssetResource.queryPublicAssets(surveyQuestQuery).then((response) => {
+            if (response && response.data) {
+                this.questions = response.data;
+                this.requestUpdate();
+            }
+        }).catch((reason) => {
+            console.error("Error: " + reason);
+        });
 
 
     }
@@ -188,10 +203,11 @@ class OrSurveyResults extends LitElement {
             return {
                 name: categoryName,
                 result: category[categoryName].map((question: any) => {
-                    const questionName = Object.keys(question)[0];
+                    const questionId = Object.keys(question)[0];
+                    const assetQuestion = this.questions?.find((question)=> question.id === questionId)
                     return {
-                        name: questionName,
-                        value: question[questionName].map((answer: any) => {
+                        name: assetQuestion ? assetQuestion.name : "",
+                        value: question[questionId].map((answer: any) => {
                             const answerName = Object.keys(answer)[0];
                             const amount = answer[answerName];
                             if (typeof amount === "number" &&
@@ -204,7 +220,6 @@ class OrSurveyResults extends LitElement {
                 })
             }
         });
-
 
         return computedResults;
     }

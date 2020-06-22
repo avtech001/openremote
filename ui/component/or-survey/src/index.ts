@@ -451,6 +451,7 @@ class OrSurvey extends LitElement {
                 excludeAttributeTimestamp: false,
                 excludeAttributeType: false
             },
+            parents: [{id:surveyId}],
             types: [{predicateType: "string", value: "urn:openremote:asset:eindhoven:survey:question", match: AssetQueryMatch.CONTAINS}]
         };
 
