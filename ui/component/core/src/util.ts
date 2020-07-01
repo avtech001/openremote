@@ -14,10 +14,11 @@ import {
     AttributeDescriptor,
     MetaItemType,
     MetaItemDescriptor,
-    AttributeValueType
+    AttributeValueDescriptor
 } from "@openremote/model";
-import {AssetModelUtil} from "./index";
 import i18next from "i18next";
+import Qs from "qs";
+import {AssetModelUtil} from "./index";
 
 export class Deferred<T> {
 
@@ -49,6 +50,16 @@ export class Deferred<T> {
 export interface GeoNotification {
     predicate: GeofencePredicate;
     notification?: PushNotificationMessage;
+}
+
+export function getQueryParameters(queryStr: string): any {
+    const parsed = Qs.parse(queryStr, {ignoreQueryPrefix: true});
+    return parsed;
+}
+
+export function getQueryParameter(queryStr: string, parameter: string): any | undefined {
+    const parsed = getQueryParameters(queryStr);
+    return parsed ? parsed[parameter] : undefined;
 }
 
 export function getGeoNotificationsFromRulesSet(rulesetDefinition: JsonRulesetDefinition): GeoNotification[] {
@@ -164,23 +175,52 @@ export function isTimeDurationNegativeInfinity(time?: string): boolean {
     return "-*" === time;
 }
 
-export function arraysEqual<T>(arr1?: T[], arr2?: T[]) {
-    if (arr1 === arr2) {
-         return true;
+export function isObject(object: any): boolean {
+    if (!!object) {
+        return typeof object === "object";
     }
-    if (!arr1 || !arr2) {
-        return false;
-    }
-    if (arr1.length !== arr2.length) {
-        return false;
-    }
-    for (let i = arr1.length; i--;) {
-        if (arr1[i] !== arr2[i]) {
-            return false;
-        }
+    return false;
+}
+
+export function objectsEqual(obj1?: any, obj2?: any, deep: boolean = true): boolean {
+    if (obj1 === obj2) {
+        return true;
     }
 
-    return true;
+    if (!obj1 || !obj2) {
+        return false;
+    }
+
+    if (deep) {
+        let iterator1: [string, any][] | undefined;
+        let iterator2: [string, any][] | undefined;
+
+        if (Array.isArray(obj1) || typeof obj1 === "object") {
+            if (typeof obj2 !== typeof obj1) {
+                return false;
+            }
+            iterator1 = Object.entries(obj1).sort((a, b) => b[0].localeCompare(a[0]));
+            iterator2 = Object.entries(obj2).sort((a, b) => b[0].localeCompare(a[0]));
+        }
+
+        if (!iterator1 || !iterator2) {
+            return false;
+        }
+
+        if (iterator1.length !== iterator2.length) {
+            return false;
+        }
+
+        for (let i = iterator1.length; i--;) {
+            if (iterator1[i][0] !== iterator2[i][0] || !objectsEqual(iterator1[i][1], iterator2[i][1])) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    return false;
 }
 
 export function arrayRemove<T>(arr: T[], item: T) {
@@ -203,18 +243,9 @@ export function getEnumKeyAsString(enm: object, val: string): string {
     return key!;
 }
 
-export function getQueryParameter(name: string): string {
-    name = name.replace(/[\[]/, "\\[").replace(/[\]]/, "\\]");
-    const regex = new RegExp("[\\?&]" + name + "=([^&#]*)");
-    const results = regex.exec(location.search);
-    return results === null ? "" : decodeURIComponent(results[1].replace(/\+/g, " "));
-}
-
 export function getAssetAttribute(asset: Asset, attributeName: string): AssetAttribute | undefined {
-    if (asset.attributes && asset.attributes.hasOwnProperty(attributeName)) {
-        const attr = asset.attributes[attributeName] as AssetAttribute;
-        attr.name = attributeName;
-        attr.assetId = asset.id;
+    if (asset && asset.attributes && asset.attributes.hasOwnProperty(attributeName)) {
+        const attr = {...asset.attributes[attributeName], name: attributeName, assetId: asset.id} as AssetAttribute;
         return attr;
     }
 }
@@ -222,8 +253,7 @@ export function getAssetAttribute(asset: Asset, attributeName: string): AssetAtt
 export function getAssetAttributes(asset: Asset, exclude?: string[]): AssetAttribute[] {
     if (asset.attributes) {
         return Object.entries(asset.attributes as {[s: string]: AssetAttribute}).filter(([name, attr]) => !exclude || exclude.indexOf(name) >= 0).map(([name, attr]) => {
-            attr.name = name;
-            attr.assetId = asset.id;
+            attr = {...attr, name: name, assetId: asset.id};
             return attr;
         });
     }
@@ -244,7 +274,7 @@ export function hasMetaItem(attribute: Attribute, name: string): boolean {
     return !!getFirstMetaItem(attribute, name);
 }
 
-export function getMetaValue(metaItemUrn: string | MetaItemDescriptor, attribute: Attribute | undefined, descriptor: AttributeDescriptor | undefined): any {
+export function getMetaValue(metaItemUrn: string | MetaItemDescriptor, attribute: Attribute | undefined, descriptor: AttributeDescriptor | undefined, valueDescriptor?: AttributeValueDescriptor): any {
     const urn = typeof metaItemUrn === "string" ? metaItemUrn : (metaItemUrn as MetaItemDescriptor).urn;
 
     if (attribute && attribute.meta) {
@@ -254,6 +284,11 @@ export function getMetaValue(metaItemUrn: string | MetaItemDescriptor, attribute
 
     if (descriptor && descriptor.metaItemDescriptors) {
         const metaItemDescriptor = descriptor.metaItemDescriptors.find((mid) => mid.urn === urn);
+        return metaItemDescriptor ? metaItemDescriptor.initialValue : undefined;
+    }
+
+    if (valueDescriptor && valueDescriptor.metaItemDescriptors) {
+        const metaItemDescriptor = valueDescriptor.metaItemDescriptors.find((mid) => mid.urn === urn);
         return metaItemDescriptor ? metaItemDescriptor.initialValue : undefined;
     }
 }
@@ -268,20 +303,46 @@ export function getAttributeLabel(attribute: Attribute | undefined, descriptor: 
     return i18next.t([name, fallback || labelMetaValue || name]);
 }
 
-export function getAttributeValue(attribute: Attribute, descriptor: AttributeDescriptor | undefined, fallbackFormat?: string): any {
-    if (!attribute && !descriptor) {
-        return fallbackFormat || "";
+export function getAttributeValueFormatter(attribute: Attribute | undefined, descriptor: AttributeDescriptor | undefined, valueDescriptor: AttributeValueDescriptor | undefined): ((value: any) => string) {
+
+    let format = getMetaValue(MetaItemType.FORMAT, attribute, descriptor, valueDescriptor) as string;
+    if (!format) {
+        let valueType: string | undefined;
+        if (attribute) {
+            valueType = attribute.type! as string;
+        } if (valueDescriptor) {
+            valueType = valueDescriptor.valueType;
+        } else if (descriptor) {
+            valueDescriptor = descriptor.valueDescriptor as any;
+            // noinspection SuspiciousTypeOfGuard
+            if (typeof valueDescriptor === "string") {
+                valueDescriptor = AssetModelUtil.getAttributeValueDescriptor(valueDescriptor);
+            }
+            if (valueDescriptor) {
+                valueType = valueDescriptor.valueType;
+            }
+        }
+        if (valueType) {
+            format = i18next.t("attributeValueType." + valueType);
+        }
     }
-    const format = getMetaValue(MetaItemType.FORMAT, attribute , undefined);
-    const valueType = attribute.type;
-    if(format){
-        return i18next.t(format, { postProcess: 'sprintf', sprintf: [attribute.value] });
+
+    return (value: any) => {
+        return value === undefined || value === null ? "" : i18next.t((format ? [format, "%s"] : "%s"), { postProcess: "sprintf", sprintf: [value] });
+    };
+}
+
+export function getAttributeValueFormatted(attribute: Attribute, descriptor: AttributeDescriptor | undefined, valueDescriptor: AttributeValueDescriptor | undefined, fallback?: string): any {
+
+    if (!attribute) {
+        return fallback || "";
     }
-    else if(attribute.value) {
-        return i18next.t(["attributeValueType."+valueType, fallbackFormat || "%s"], { postProcess: 'sprintf', sprintf: [attribute.value] });
-    } else {
-        return attribute.value;
+
+    if (attribute.value === undefined || attribute.value === null) {
+        return "";
     }
+
+    return getAttributeValueFormatter(attribute, descriptor, valueDescriptor)(attribute.value);
 }
 
 /**
@@ -308,7 +369,7 @@ export function updateAsset(asset: Asset, event: AttributeEvent): Asset {
 
 export function loadJs(url: string) {
         return new Promise((resolve, reject) => {
-            let script = document.createElement('script');
+            const script = document.createElement('script');
             script.type = 'text/javascript';
             script.src = url;
             script.addEventListener('load', (e) => resolve(e), false);

@@ -1,4 +1,4 @@
-import {css, customElement, html, LitElement, property, PropertyValues, TemplateResult, unsafeCSS, query} from "lit-element";
+import {css, customElement, html, LitElement, property, PropertyValues, TemplateResult, unsafeCSS} from "lit-element";
 import {classMap} from "lit-html/directives/class-map";
 import {ifDefined} from "lit-html/directives/if-defined";
 import {MDCTextField} from "@material/textfield";
@@ -7,15 +7,13 @@ import {MDCRipple} from "@material/ripple";
 import {MDCCheckbox} from "@material/checkbox";
 import {MDCSwitch} from "@material/switch";
 import {MDCSelect, MDCSelectEvent } from "@material/select";
-import {MDCList, MDCListActionEvent} from '@material/list';
+import {MDCList, MDCListActionEvent} from "@material/list";
 
 import {MDCFormField, MDCFormFieldInput} from "@material/form-field";
 import {MDCIconButtonToggle, MDCIconButtonToggleEventDetail} from "@material/icon-button";
 import moment from "moment";
-import manager, {DefaultColor1, DefaultColor4, DefaultColor8} from "@openremote/core";
-
+import {DefaultColor4, DefaultColor8} from "@openremote/core";
 import i18next from "i18next";
-import { ClientRole } from "@openremote/model/src";
 
 // TODO: Add webpack/rollup to build so consumers aren't forced to use the same tooling
 const buttonStyle = require("!!raw-loader!@material/button/dist/mdc.button.css");
@@ -244,7 +242,7 @@ export class OrInput extends LitElement {
     public max?: any;
 
     @property()
-    public min?: HTMLInputElement;
+    public min?: any;
 
     @property({type: Number})
     public step?: number;
@@ -278,10 +276,6 @@ export class OrInput extends LitElement {
 
     @property({type: Boolean})
     public autoSelect?: boolean;
-
-
-    @property({type: Boolean})
-    public checkAssetWrite: boolean = true;
 
     /* STYLING PROPERTIES BELOW */
 
@@ -355,8 +349,7 @@ export class OrInput extends LitElement {
     }
 
     protected render() {
-        const readonly = this.readonly || this.checkAssetWrite ? !manager.hasRole(ClientRole.WRITE_ASSETS) : false;
-    
+
         if (this.type) {
 
             const showLabel = !this.fullWidth && this.label;
@@ -372,14 +365,14 @@ export class OrInput extends LitElement {
                 case InputType.SWITCH:
                     return html`
                         <span id="wrapper">
-                            <div id="component" class="mdc-switch ${this.disabled || readonly ? "mdc-switch--disabled" : ""} ${this.value ? "mdc-switch--checked" : ""}">
+                            <div id="component" class="mdc-switch ${this.disabled || this.readonly ? "mdc-switch--disabled" : ""} ${this.value ? "mdc-switch--checked" : ""}">
                                 <div class="mdc-switch__track"></div>
                                 <div class="mdc-switch__thumb-underlay">
                                     <div class="mdc-switch__thumb">
                                         <input type="checkbox" id="elem" class="mdc-switch__native-control" 
                                         ?checked="${this.value}"
                                         ?required="${this.required}"
-                                        ?disabled="${this.disabled || readonly}"
+                                        ?disabled="${this.disabled || this.readonly}"
                                         @change="${(e: Event) => this.onValueChange((e.target as HTMLInputElement), (e.target as HTMLInputElement).checked)}"
                                         role="switch">
                                     </div>
@@ -428,7 +421,7 @@ export class OrInput extends LitElement {
                 case InputType.SELECT:
                     const classes = {
                         "mdc-select--outlined": outlined,
-                        "mdc-select--disabled": this.disabled || readonly,
+                        "mdc-select--disabled": this.disabled || this.readonly,
                         "mdc-select--required": this.required,
                         "mdc-select--dense": false, // this.dense,
                         "mdc-select--no-label": !this.label,
@@ -447,7 +440,8 @@ export class OrInput extends LitElement {
                             opts = (this.options as string[]).map((option) => [option, option]);
                         }
                     }
-
+                    const value = opts && opts.find(([optValue, optDisplay], index) => this.value === optValue);
+                    const valueLabel = value ? value[1] : this.value;
                     this._selectedIndex = -1;
 
                     return html`
@@ -456,18 +450,20 @@ export class OrInput extends LitElement {
                             @MDCSelect:change="${(e: MDCSelectEvent) => this.onValueChange(undefined, e.detail.index === -1 ? undefined : Array.isArray(this.options![e.detail.index]) ? this.options![e.detail.index][0] : this.options![e.detail.index])}">
                                 <div id="menu-anchor" class="mdc-select__anchor select-class">
                                     <or-icon class="mdc-select__dropdown-icon" icon="menu-down"></or-icon>
-                                    <div id="elem" class="mdc-select__selected-text" role="button" aria-haspopup="listbox" aria-controls="component-helper-text" aria-describedby="component-helper-text" aria-labelledby="component-label component"></div>
+                                    <input id="elem" readonly class="mdc-select__selected-text" role="button" value="${i18next.t(valueLabel)}" aria-haspopup="listbox" aria-controls="component-helper-text" aria-describedby="component-helper-text" aria-labelledby="component-label component"/>
                                     ${outlined ? this.renderOutlined(labelTemplate) : labelTemplate}
                                     ${!outlined ? html`<div class="mdc-line-ripple"></div>` : ``}
-                                </div>                            
-    
+                                </div>   
+                                 
                                 <div class="mdc-select__menu mdc-menu mdc-menu-surface select-class" role="listbox">
                                     <ul class="mdc-list">
                                         ${opts ? opts.map(([optValue, optDisplay], index) => {
                                             if (this.value === optValue) {
                                                 this._selectedIndex = index;
                                             }
-                                            return html`<li class="mdc-list-item" role="option" data-value="${optValue}">${optDisplay}</li>`;
+                                            return html`<li class="mdc-list-item ${this._selectedIndex === index ? "mdc-menu-item--selected" : ""}" role="option" aria-checked="${this._selectedIndex === index}"  data-value="${optValue}">
+                                                                <span><or-translate value="${optDisplay}"></or-translate></span>
+                                                         </li>`;
                                         }) : ``}
                                     </ul>
                                 </div>                                
@@ -481,7 +477,7 @@ export class OrInput extends LitElement {
                 case InputType.BUTTON_TOGGLE:
                     return html`
                         <button id="component" class="mdc-icon-button ${this.value ? "mdc-icon-button--on" : ""}"
-                            ?readonly="${readonly}"
+                            ?readonly="${this.readonly}"
                             ?disabled="${this.disabled}"
                             @MDCIconButtonToggle:change="${(evt: MDCIconButtonToggleEventDetail) => this.onValueChange(undefined, evt.isOn)}">
                             ${this.icon ? html`<or-icon class="mdc-icon-button__icon" aria-hidden="true" icon="${this.icon}"></or-icon>` : ``}
@@ -506,7 +502,7 @@ export class OrInput extends LitElement {
                     };
                     return html`
                         <button id="component" class="${classMap(classes)}"
-                            ?readonly="${readonly}"
+                            ?readonly="${this.readonly}"
                             ?disabled="${this.disabled}"
                             @onmousedown="${() => {if (isMomentary) this.onValueChange(undefined, true)}}" @onmouseup="${() => isMomentary ? this.onValueChange(undefined, false) : this.onValueChange(undefined, true)}">
                             ${!isIconButton ? html`<div class="mdc-button__ripple"></div>` : ``}
@@ -523,7 +519,7 @@ export class OrInput extends LitElement {
                                 <input type="checkbox" 
                                     ?checked="${this.value}"
                                     ?required="${this.required}"
-                                    ?disabled="${this.disabled || readonly}"
+                                    ?disabled="${this.disabled || this.readonly}"
                                     @change="${(e: Event) => this.onValueChange((e.target as HTMLInputElement), (e.target as HTMLInputElement).checked)}"
                                     class="mdc-checkbox__native-control" id="elem"/>
                                 <div class="mdc-checkbox__background">
@@ -551,44 +547,47 @@ export class OrInput extends LitElement {
                 case InputType.TEXT:
                 case InputType.TEXTAREA:
                 case InputType.JSON: {
-                    let val = this.value;
+                    const valMinMax: [any, any, any] = [this.value, this.min, this.max];
 
-                    if (typeof(val) !== "string") {
+                    if (valMinMax.find((v) => v !== undefined && v !== null && typeof(v) !== "string") !== undefined) {
+
+                        let format: string | undefined;
+
                         switch (this.type) {
                             case InputType.TIME:
-                                if (val instanceof Date) {
-                                   val = moment(val).format("HH:mm");
-                                }
+                                format = "HH:mm";
                                break;
                             case InputType.DATE:
-                                 if (val instanceof Date) {
-                                    val = moment(val).format("YYYY-MM-DD");
-                                }
+                                format = "YYYY-MM-DD";
                                 break;
                             case InputType.WEEK:
-                                     if (val instanceof Date) {
-                                        val = moment(val).format("YYYY-")+"W"+moment(val).format("WW");
-                                    }
-                                    break;
+                                format = "YYYY-Www";
+                                break;
                             case InputType.MONTH:
-                                 if (val instanceof Date) {
-                                    val = moment(val).format("YYYY-MM");
-                                }
+                                format = "YYYY-MM";
                                 break;
                             case InputType.DATETIME:
-                                if (val instanceof Date) {
-                                    val = moment(val).format("YYYY-MM-DDTHH:mm");
-                                } else if (typeof(val) === "number") {
-                                    const offset = (new Date()).getTimezoneOffset() * 60000;
-                                    val = moment(new Date(val - offset)).format("YYYY-MM-DDTHH:mm");
-                                }
+                                format = "YYYY-MM-DDTHH:mm";
                                 break;
                             case InputType.JSON:
-                                val = val !== undefined && val !== null ? JSON.stringify(val, null, 2) : "";
+                                valMinMax[0] = valMinMax[0] !== undefined && valMinMax[0] !== null ? (typeof valMinMax[0] === "string" ? valMinMax[0] : JSON.stringify(valMinMax[0], null, 2)) : "";
                                 break;
                             default:
-                                val = val !== undefined && val !== null ? val : "";
+                                valMinMax[0] = valMinMax[0] !== undefined && valMinMax[0] !== null ? valMinMax[0] : "";
                                 break;
+                        }
+
+                        if (format) {
+                            valMinMax.forEach((val, i) => {
+                                if (typeof(val) === "number") {
+                                    const offset = (new Date()).getTimezoneOffset() * 60000;
+                                    val = new Date(val - offset);
+                                }
+                                if (val instanceof Date) {
+                                    val = moment(val).format(format);
+                                }
+                                valMinMax[i] = val;
+                            });
                         }
                     }
 
@@ -613,24 +612,24 @@ export class OrInput extends LitElement {
                             ${this.type === InputType.TEXTAREA  || this.type === InputType.JSON ? html`
                                 <textarea id="elem" class="mdc-text-field__input"
                                     ?required="${this.required}"
-                                    ?readonly="${readonly}"
+                                    ?readonly="${this.readonly}"
                                     ?disabled="${this.disabled}"
                                     @change="${(e: Event) => this.onValueChange((e.target as HTMLTextAreaElement), (e.target as HTMLTextAreaElement).value)}"
                                     minlength="${ifDefined(this.minLength)}"
                                     maxlength="${ifDefined(this.maxLength)}"
                                     rows="${this.rows ? this.rows : 5}" 
                                     cols="${ifDefined(this.cols)}"
-                                    aria-label="${ifDefined(this.label)}">${val ? val : ""}</textarea>
+                                    aria-label="${ifDefined(this.label)}">${valMinMax[0] ? valMinMax[0] : ""}</textarea>
                                 ${this.renderOutlined(labelTemplate)}
                                 ` :
                                 html`<input type="${this.type}" id="elem" class="mdc-text-field__input"
                                     ?required="${this.required}"
-                                    ?readonly="${readonly}"
+                                    ?readonly="${this.readonly}"
                                     ?disabled="${this.disabled}"
                                     @change="${(e: Event) => this.onValueChange((e.target as HTMLInputElement), (e.target as HTMLInputElement).value)}"
-                                    .value="${val !== null && val !== undefined ? val : ""}"
-                                    min="${ifDefined(this.min)}"
-                                    max="${ifDefined(this.max)}"
+                                    .value="${valMinMax[0] !== null && valMinMax[0] !== undefined ? valMinMax[0] : ""}"
+                                    min="${ifDefined(valMinMax[1])}"
+                                    max="${ifDefined(valMinMax[2])}"
                                     step="${this.step ? this.step : "any"}"
                                     aria-label="${ifDefined(this.label)}"
                                     minlength="${ifDefined(this.minLength)}"
@@ -644,7 +643,7 @@ export class OrInput extends LitElement {
                             ${hasHelper ? html`
                                 <div class="mdc-text-field-helper-line">
                                     <div class="mdc-text-field-helper-text ${classMap(helperClasses)}">${showValidationMessage ? this.validationMessage : this.helperText}</div>
-                                    ${this.charCounter && !readonly ? html`<div class="mdc-text-field-character-counter"></div>` : ``}
+                                    ${this.charCounter && !this.readonly ? html`<div class="mdc-text-field-character-counter"></div>` : ``}
                                 </div>
                         ` : ``}
                     `;
@@ -800,4 +799,13 @@ export class OrInput extends LitElement {
             this.dispatchEvent(new OrInputChangedEvent(this.value, previousValue));
         }
     }
+
+    public get valid(): boolean {
+        const elem = this.shadowRoot!.getElementById("elem") as any;
+        if (elem && elem.checkValidity) {
+            return elem.checkValidity();
+        }
+        return true;
+    }
+
 }

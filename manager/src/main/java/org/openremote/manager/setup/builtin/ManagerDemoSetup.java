@@ -25,6 +25,7 @@ import org.openremote.container.Container;
 import org.openremote.container.util.UniqueIdentifierGenerator;
 import org.openremote.manager.security.UserConfiguration;
 import org.openremote.manager.setup.AbstractManagerSetup;
+import org.openremote.model.apps.ConsoleAppConfig;
 import org.openremote.model.asset.Asset;
 import org.openremote.model.asset.AssetAttribute;
 import org.openremote.model.asset.UserAsset;
@@ -374,7 +375,7 @@ public class ManagerDemoSetup extends AbstractManagerSetup {
         smartBuilding.setName("Smart Building");
         smartBuilding.setType(BUILDING);
         smartBuilding.setAttributes(
-            new AssetAttribute(AttributeType.LOCATION, SMART_BUILDING_LOCATION.toValue()),
+            new AssetAttribute(AttributeType.LOCATION, SMART_BUILDING_LOCATION.toValue()).addMeta(SHOW_ON_DASHBOARD),
             new AssetAttribute(AttributeType.GEO_STREET, Values.create("Kastanjelaan 500")),
             new AssetAttribute(AttributeType.GEO_POSTAL_CODE, Values.create(5616)),
             new AssetAttribute(AttributeType.GEO_CITY, Values.create("Eindhoven")),
@@ -866,5 +867,18 @@ public class ManagerDemoSetup extends AbstractManagerSetup {
 
         Asset lightController_3Asset = createDemoLightControllerAsset("LightController 3", assetArea3, new GeoJSONPoint(5.487478, 51.446979));
         lightController_3Asset = assetStorageService.merge(lightController_3Asset);
+
+        persistenceService.doTransaction(entityManager -> {
+            entityManager.merge(new ConsoleAppConfig(
+                    tenantBuilding.getRealm(),
+                    "https://demo.openremote.io/main/?realm=building",
+                    true,
+                    ConsoleAppConfig.MenuPosition.BOTTOM_LEFT,
+                    null,
+                    "#FAFAFA",
+                    "#AFAFAF",
+                    Values.createObject().put("Map", "https://maps.google.com")
+            ));
+        });
     }
 }

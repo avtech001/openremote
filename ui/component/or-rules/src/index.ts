@@ -29,7 +29,8 @@ import {
     TenantRuleset,
     ValueType,
     ClientRole,
-    Asset
+    Asset,
+    NotificationTargetType
 } from "@openremote/model";
 import "@openremote/or-translate";
 import "@openremote/or-mwc-components/dist/or-mwc-drawer";
@@ -40,6 +41,7 @@ import "./flow-viewer/flow-viewer";
 import {OrRuleList} from "./or-rule-list";
 import {OrRuleViewer} from "./or-rule-viewer";
 import {RecurrenceOption} from "./json-viewer/or-rule-then-otherwise";
+import { AttributeInputCustomProvider } from "@openremote/or-attribute-input";
 
 export const enum ConditionType {
     ASSET_QUERY = "assetQuery",
@@ -49,6 +51,7 @@ export const enum ConditionType {
 export const enum ActionType {
     WAIT = "wait",
     NOTIFICATION = "notification",
+    PUSH_NOTIFICATION = "push",
     ATTRIBUTE = "attribute"
 }
 
@@ -89,6 +92,10 @@ export interface AssetTypeAttributeName {
     assetType: string;
     attributeName: string;
 }
+export interface NotificationActionTargetType {
+    [messageType: string]: NotificationTargetType[]
+}
+
 
 export interface RulesConfig {
     controls?: {
@@ -97,6 +104,7 @@ export interface RulesConfig {
         allowedActionTypes?: ActionType[];
         allowedAssetQueryOperators?: Map<AssetTypeAttributeName | AttributeDescriptor | AttributeValueDescriptor | ValueType, AssetQueryOperator[]>;
         allowedRecurrenceOptions?: RecurrenceOption[];
+        hideNotificationTargetType?: NotificationActionTargetType;
         hideActionTypeOptions?: boolean;
         hideActionTargetOptions?: boolean;
         hideActionUpdateOptions?: boolean;
@@ -106,7 +114,7 @@ export interface RulesConfig {
         hideWhenAddAttribute?: boolean;
         hideWhenAddGroup?: boolean;
     };
-    inputProvider?: (assetType: string | undefined, attribute: Attribute | undefined, attributeDescriptor: AttributeDescriptor | undefined, valueDescriptor: AttributeValueDescriptor | undefined, valueChangeNotifier: (value: any | undefined) => void, readonly: boolean | undefined, disabled: boolean | undefined) => ((value: any) => TemplateResult) | undefined;
+    inputProvider?: AttributeInputCustomProvider;
     descriptors?: {
         all?: RulesDescriptorSection;
         when?: RulesDescriptorSection;
@@ -406,15 +414,15 @@ export class OrRulesRequestSelectEvent extends CustomEvent<RequestEventDetail<Ru
     }
 }
 
-export class OrRulesRequestAddEvent extends CustomEvent<RulesetLang> {
+export class OrRulesRequestAddEvent extends CustomEvent<RulesetUnion> {
 
     public static readonly NAME = "or-rules-request-add";
 
-    constructor(lang: RulesetLang) {
+    constructor(lang: RulesetLang, type:any) {
         super(OrRulesRequestAddEvent.NAME, {
             bubbles: true,
             composed: true,
-            detail: lang
+            detail: {lang, type}
         });
     }
 }
@@ -615,7 +623,8 @@ export class OrRules extends translate(i18next)(LitElement) {
     }
 
     protected _onRequestAdd(e: OrRulesRequestAddEvent) {
-        const lang = e.detail;
+        const lang = e.detail.lang;
+        const type = e.detail.type;
         const shouldContinue = this._okToLeaveActiveRule();
 
         if (!shouldContinue) {
@@ -624,15 +633,15 @@ export class OrRules extends translate(i18next)(LitElement) {
 
         const name = this.config && this.config.rulesetName ? this.config.rulesetName : OrRules.DEFAULT_RULESET_NAME;
         const realm = manager.isSuperUser() ? manager.displayRealm : manager.config.realm;
-
-        const ruleset: TenantRuleset = {
+        const ruleset: RulesetUnion = {
             id: 0,
-            type: "tenant",
+            type: type,
             name: name,
             lang: lang,
             realm: realm,
             rules: undefined // View needs to populate this on load
         };
+        console.log(ruleset)
         this._activeRuleset = ruleset;
     }
 

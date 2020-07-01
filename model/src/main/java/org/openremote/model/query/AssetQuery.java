@@ -19,6 +19,7 @@
  */
 package org.openremote.model.query;
 
+import org.openremote.model.asset.AssetDescriptor;
 import org.openremote.model.asset.AssetType;
 import org.openremote.model.attribute.MetaItemDescriptor;
 import org.openremote.model.query.filter.*;
@@ -344,7 +345,7 @@ public class AssetQuery {
         return this;
     }
 
-    public AssetQuery types(AssetType... types) {
+    public AssetQuery types(AssetDescriptor... types) {
         if (types == null || types.length == 0) {
             this.types = null;
             return this;
@@ -425,7 +426,7 @@ public class AssetQuery {
     public String toString() {
         return getClass().getSimpleName() + "{" +
                 "select=" + select +
-                ", id='" + ids + '\'' +
+                ", ids=" + (ids != null ? Arrays.toString(ids) : "null") +
                 ", name=" + names +
                 ", parent=" + parents +
                 ", path=" + paths +

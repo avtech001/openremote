@@ -23,7 +23,7 @@ import org.apache.camel.builder.RouteBuilder;
 import org.openremote.agent.protocol.simulator.SimulatorProtocol;
 import org.openremote.container.Container;
 import org.openremote.container.ContainerService;
-import org.openremote.container.message.MessageBrokerSetupService;
+import org.openremote.container.message.MessageBrokerService;
 import org.openremote.container.security.AuthContext;
 import org.openremote.manager.asset.AssetStorageService;
 import org.openremote.manager.event.ClientEventService;
@@ -37,7 +37,7 @@ import java.util.List;
 import java.util.logging.Logger;
 
 import static org.openremote.manager.event.ClientEventService.CLIENT_EVENT_TOPIC;
-import static org.openremote.manager.event.ClientEventService.getSessionKey;
+import static org.openremote.agent.protocol.ProtocolClientEventService.getSessionKey;
 
 /**
  * Connects the client/UI to the {@link SimulatorProtocol}.
@@ -76,7 +76,7 @@ public class SimulatorService extends RouteBuilder implements ContainerService {
             return false;
         });
 
-        container.getService(MessageBrokerSetupService.class).getContext().addRoutes(this);
+        container.getService(MessageBrokerService.class).getContext().addRoutes(this);
 
         // When a protocol instance has its values updated through linked attribute writes, publish a snapshot to all sessions
         simulatorProtocol.setValuesChangedHandler(

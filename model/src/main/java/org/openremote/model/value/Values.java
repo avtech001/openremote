@@ -15,8 +15,10 @@
  */
 package org.openremote.model.value;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectReader;
+import com.fasterxml.jackson.databind.ObjectWriter;
 import com.google.gwt.core.shared.GwtIncompatible;
+import com.google.inject.internal.util.$FinalizableWeakReference;
 import jsinterop.annotations.JsIgnore;
 import jsinterop.annotations.JsMethod;
 import jsinterop.base.Any;
@@ -25,6 +27,7 @@ import org.openremote.model.attribute.MetaItem;
 import org.openremote.model.attribute.MetaItemDescriptor;
 import org.openremote.model.value.impl.ValueFactoryImpl;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -111,7 +114,7 @@ public class Values {
      */
     public static Optional<Boolean> getBooleanCoerced(Value value) {
 
-        return convert(value, BooleanValue.class)
+        return convertToValue(value, BooleanValue.class)
             .map(BooleanValue::getBoolean);
     }
 
@@ -120,7 +123,7 @@ public class Values {
      */
     public static Optional<Integer> getIntegerCoerced(Value value) {
 
-        return convert(value, NumberValue.class)
+        return convertToValue(value, NumberValue.class)
             .map(NumberValue::getNumber)
             .map(Double::intValue);
     }
@@ -130,7 +133,7 @@ public class Values {
      */
     public static Optional<Long> getLongCoerced(Value value) {
 
-        return convert(value, NumberValue.class)
+        return convertToValue(value, NumberValue.class)
             .map(NumberValue::getNumber)
             .map(Double::longValue);
     }
@@ -232,12 +235,12 @@ public class Values {
         return Optional.of((T)value.get());
     }
 
-    public static <T extends Value> Optional<T> convert(Value value, Class<T> toType) {
-        return convert(value, ValueType.fromModelType(toType));
+    public static <T extends Value> Optional<T> convertToValue(Value value, Class<T> toType) {
+        return convertToValue(value, ValueType.fromModelType(toType));
     }
 
     @SuppressWarnings("unchecked")
-    public static <T extends Value> Optional<T> convert(Value value, ValueType toType) {
+    public static <T extends Value> Optional<T> convertToValue(Value value, ValueType toType) {
         if (value == null) {
             return Optional.empty();
         }
@@ -310,7 +313,7 @@ public class Values {
                         Value firstValue = arrayValue.get(0).orElse(null);
 
                         if (firstValue != null) {
-                            return convert(firstValue, toType);
+                            return convertToValue(firstValue, toType);
                         }
                     }
             }
@@ -319,20 +322,48 @@ public class Values {
         return Optional.ofNullable(outputValue);
     }
 
-    @SuppressWarnings("unchecked")
     @JsIgnore
     @GwtIncompatible
-    public static <T extends Value> Optional<T> convert(Object object, ObjectMapper objectMapper) {
-        if (object == null || objectMapper == null) {
-            return Optional.empty();
-        }
-
+    public static <T extends Value> Optional<T> convertToValue(Object object, ObjectWriter writer) {
         try {
-            Value v = parse(objectMapper.writeValueAsString(object)).orElse(null);
-            return Optional.ofNullable((T)v);
+            return Optional.of(convertToValueOrThrow(object, writer));
         } catch (Exception ignored) {
         }
 
         return Optional.empty();
+    }
+
+    @JsIgnore
+    @GwtIncompatible
+    public static <T extends Value> T convertToValueOrThrow(Object object, ObjectWriter writer) throws IOException {
+        if (object == null || writer == null) {
+            throw new IllegalArgumentException("Value and writer must be defined");
+        }
+
+        Value v;
+        v = parse(writer.writeValueAsString(object)).orElse(null);
+        return (T)v;
+    }
+
+    @JsIgnore
+    @GwtIncompatible
+    public static <T> Optional<T> convertFromValue(Value value, Class<T> clazz, ObjectReader reader) {
+        try {
+            return Optional.of(convertFromValueOrThrow(value, clazz, reader));
+        } catch (Exception ignored) {
+        }
+
+        return Optional.empty();
+    }
+
+    @JsIgnore
+    @GwtIncompatible
+    public static <T> T convertFromValueOrThrow(Value value, Class<T> clazz, ObjectReader reader) throws IOException {
+        if (value == null || clazz == null || reader == null) {
+            throw new IllegalArgumentException("Value, class and reader must be defined");
+        }
+
+        String str = value.toJson();
+        return reader.forType(clazz).readValue(str);
     }
 }

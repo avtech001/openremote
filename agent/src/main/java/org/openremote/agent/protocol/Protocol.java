@@ -21,7 +21,7 @@ package org.openremote.agent.protocol;
 
 import org.apache.commons.codec.binary.BinaryCodec;
 import org.apache.commons.codec.binary.Hex;
-import org.openremote.agent.protocol.http.OAuthGrant;
+import org.openremote.container.web.OAuthGrant;
 import org.openremote.container.Container;
 import org.openremote.container.ContainerService;
 import org.openremote.model.AbstractValueHolder;
@@ -108,7 +108,7 @@ import static org.openremote.model.value.Values.NULL_LITERAL;
  * way before being written to the linked attribute (see {@link #META_ATTRIBUTE_VALUE_CONVERTER})</li>
  * <li>Automatic basic value conversion should be performed when the {@link ValueType} of the value produced by the
  * protocol and any configured value conversion does not match the linked attributes underlying {@link ValueType}; this
- * basic conversion should use the {@link Values#convert} method</li>
+ * basic conversion should use the {@link Values#convertToValue} method</li>
  * </ol>
  * <h1>Outbound value conversion (Linked Attribute -> Protocol)</h1>
  * Standard value conversion should be performed in the following order, this is encapsulated in
@@ -450,14 +450,14 @@ public interface Protocol extends ContainerService {
      * {@link ConnectionStatus#ERROR} or {@link ConnectionStatus#ERROR_CONFIGURATION} or this method throws an exception
      * then attribute linking will be skipped for this {@link ProtocolConfiguration}.
      */
-    void linkProtocolConfiguration(AssetAttribute protocolConfiguration, Consumer<ConnectionStatus> statusConsumer)
+    void linkProtocolConfiguration(Asset agent, AssetAttribute protocolConfiguration, Consumer<ConnectionStatus> statusConsumer)
         throws Exception;
 
     /**
      * Un-links the protocol configuration from the protocol; called whenever a protocolConfiguration is modified
      * or removed.
      */
-    void unlinkProtocolConfiguration(AssetAttribute protocolConfiguration);
+    void unlinkProtocolConfiguration(Asset agent, AssetAttribute protocolConfiguration);
 
     /**
      * Get a {@link ProtocolDescriptor} for this protocol.
@@ -651,7 +651,7 @@ public interface Protocol extends ContainerService {
         if (value != null && attributeValueType.isPresent()) {
             if (attributeValueType.get() != value.getType()) {
                 LOG.fine("Trying to convert value: " + value.getType() + " -> " + attributeValueType.get());
-                Optional<Value> convertedValue = Values.convert(value, attributeValueType.get());
+                Optional<Value> convertedValue = Values.convertToValue(value, attributeValueType.get());
 
                 if (!convertedValue.isPresent()) {
                     LOG.warning("Failed to convert value: " + value.getType() + " -> " + attributeValueType.get());

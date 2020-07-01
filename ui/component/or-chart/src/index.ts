@@ -11,7 +11,7 @@ import {
 } from "lit-element";
 import i18next from "i18next";
 import {translate} from "@openremote/or-translate";
-import {Asset, AssetAttribute, AttributeRef, DatapointInterval, MetaItemType, Attribute} from "@openremote/model";
+import {Asset, AssetAttribute, AttributeRef, DatapointInterval, MetaItemType, Attribute, ReadAssetEvent, AssetEvent} from "@openremote/model";
 import manager, {
     AssetModelUtil,
     DefaultColor2,
@@ -74,7 +74,9 @@ export interface ChartConfig {
 
 export interface OrChartConfig {
     chart?: ChartConfig;
-    views: {[name: string]: ChartViewConfig};
+    views: {[name: string]: {
+        [panelName: string]: ChartViewConfig
+    }};
 }
 // TODO: Add webpack/rollup to build so consumers aren't forced to use the same tooling
 const dialogStyle = require("!!raw-loader!@material/dialog/dist/mdc.dialog.css");
@@ -222,9 +224,6 @@ const style = css`
         --or-icon-fill: var(--or-app-color4);
     }
     
-    #attribute-list {
-    }
-    
     .attribute-list-item-label {
         display: flex;
         flex: 1 1 0;
@@ -271,6 +270,7 @@ const style = css`
         flex: 1 1 0;
         position: relative;
         overflow: auto;
+        min-height: 400px;
         max-height: 550px;
     }
 
@@ -368,6 +368,9 @@ export class OrChart extends translate(i18next)(LitElement) {
     public config?: OrChartConfig;
 
     @property()
+    public panelName?: string;
+
+    @property()
     protected periodCompare: boolean = false;
 
     @property()
@@ -395,12 +398,7 @@ export class OrChart extends translate(i18next)(LitElement) {
     protected _style!: CSSStyleDeclaration;
 
     firstUpdated() {
-        if(this.shadowRoot) {
-            const assetTreeElement = this.shadowRoot.getElementById('chart-asset-tree');
-            if(assetTreeElement){
-                assetTreeElement.addEventListener(OrAssetTreeSelectionChangedEvent.NAME, (evt) => this._onTreeSelectionChanged(evt));
-            }
-            
+        if (this._dialogElem) {
             this._dialog = new MDCDialog(this._dialogElem);
             if(!this.activeAssetId) {
                 this.getSettings();
@@ -408,30 +406,42 @@ export class OrChart extends translate(i18next)(LitElement) {
         }
     }
 
-    
     protected _onTreeSelectionChanged(event: OrAssetTreeSelectionChangedEvent) {
-        const nodes = event.detail;
-        if(nodes[0] && nodes[0].asset){
-           this.activeAsset = nodes[0].asset;
+        // Need to fully load the asset
+        if (!manager.events) {
+            return;
+        }
+
+        const selectedNode = event.detail && event.detail.length > 0 ? event.detail[0] : undefined;
+
+        if (!selectedNode) {
+            this.activeAsset = undefined;
+        } else {
+            // fully load the asset
+            manager.events.sendEventWithReply({
+                event: {
+                    eventType: "read-asset",
+                    assetId: selectedNode.asset!.id
+                } as ReadAssetEvent
+            }).then((ev) => {
+                this.activeAsset = (ev as AssetEvent).asset;
+            }).catch(() => this.activeAsset = undefined);
         }
     }
     
     connectedCallback() {
         super.connectedCallback();
         this._style = window.getComputedStyle(this);
+        this.addEventListener(OrAssetTreeSelectionChangedEvent.NAME, this._onTreeSelectionChanged);
     }
 
     disconnectedCallback(): void {
         super.disconnectedCallback();
         this._cleanup();
+        this.removeEventListener(OrAssetTreeSelectionChangedEvent.NAME, this._onTreeSelectionChanged);
     }
 
-    shouldUpdate(_changedProperties: PropertyValues): boolean {
-   return super.shouldUpdate(_changedProperties);
-    }
-   
     render() {
-
         const disabled = this._loading;
         const endDateInputType = this.getInputType();
         return html`
@@ -520,7 +530,7 @@ export class OrChart extends translate(i18next)(LitElement) {
                     <div class="mdc-dialog__surface">
                     <h2 class="mdc-dialog__title" id="my-dialog-title">${i18next.t("addAttribute")}</h2>
                     <div class="dialog-container mdc-dialog__content" id="my-dialog-content">
-                        <or-asset-tree id="chart-asset-tree" .selectedIds="${this.activeAsset ? [this.activeAsset.id] : null}]"></or-asset-tree>
+                        <or-asset-tree id="chart-asset-tree" .selectedIds="${this.activeAsset ? [this.activeAsset.id] : undefined}"></or-asset-tree>
                             ${this.activeAsset && this.activeAsset.attributes ? html`
                                 <or-input id="chart-attribute-picker" 
                                         style="display:flex;"
@@ -654,8 +664,12 @@ export class OrChart extends translate(i18next)(LitElement) {
                         display: false
                     },
                     tooltips: {
-                        mode: 'index',
-                        intersect: true
+                        mode: 'x',
+                        intersect: false
+                    },
+                    hover: {
+                        mode: 'x',
+                        intersect: false
                     },
                     scales: {
                         yAxes: [{
@@ -705,12 +719,11 @@ export class OrChart extends translate(i18next)(LitElement) {
 
     getSettings() {
         const configStr = window.localStorage.getItem('OrChartConfig')
-        if(!configStr) return
+        if(!configStr || !this.panelName) return
 
         const viewSelector = this.activeAssetId ? this.activeAssetId : window.location.hash;
         const config = JSON.parse(configStr);
-        const view = config.views[viewSelector]
-        
+        const view = config.views[viewSelector][this.panelName];
         if(!view) return
         const query = {
             ids: view.assetIds
@@ -720,10 +733,12 @@ export class OrChart extends translate(i18next)(LitElement) {
 
         manager.rest.api.AssetResource.queryAssets(query).then((response) => {
             const assets = response.data;
-            this.assets = view.assetIds.map((assetId: string)  => assets.find(x => x.id === assetId));
-            this.assetAttributes = view.attributes.map((attr: string, index: number)  => Util.getAssetAttribute(this.assets[index], attr));
-            this.period = view.period;
-            this._loading = false;
+            if(assets.length > 0) {
+                this.assets = view.assetIds.map((assetId: string)  => assets.find(x => x.id === assetId));
+                this.assetAttributes = view.attributes.map((attr: string, index: number)  => Util.getAssetAttribute(this.assets[index], attr));
+                this.period = view.period;
+                this._loading = false;
+            }
         });
 
     }
@@ -734,23 +749,36 @@ export class OrChart extends translate(i18next)(LitElement) {
         const assetIds = assets.map(asset => asset.id);
         const attributes = this.assetAttributes.map(attr => attr.name);
         const configStr = window.localStorage.getItem('OrChartConfig')
+        if(!this.panelName) return
+
         let config:OrChartConfig;
         if(configStr) {
             config = JSON.parse(configStr);
         } else {
             config = {
                 views: {
-                    [viewSelector]: {}
+                    [viewSelector]: {
+                        [name] : {
+
+                        }
+                    }
                 }
             }
         }   
 
-        config.views[viewSelector] = {
+        config.views[viewSelector][this.panelName] = {
             assetIds: assetIds,
             attributes: attributes,
             period: this.period
         };
-        window.localStorage.setItem('OrChartConfig', JSON.stringify(config))
+        const message = {
+            provider: "STORAGE",
+            action: "STORE",
+            key: "OrChartConfig",
+            value: JSON.stringify(config)
+
+        }
+        manager.console._doSendProviderMessage(message)
     }
     
     _openDialog() {
@@ -801,6 +829,9 @@ export class OrChart extends translate(i18next)(LitElement) {
             this._chart.destroy();
             this._chart = undefined;
         }
+        if (this._dialog) {
+            this._dialog.destroy();
+        }
     }
 
     protected _deleteAttribute (index:number) {
@@ -833,23 +864,23 @@ export class OrChart extends translate(i18next)(LitElement) {
     protected _getPeriodOptions() {
         return [
             {
-                text: i18next.t(DatapointInterval.HOUR),
+                text: "hour",
                 value: "hour"
             },
             {
-                text: i18next.t(DatapointInterval.DAY),
+                text: "day",
                 value: "day"
             },
             {
-                text: i18next.t(DatapointInterval.WEEK),
+                text:  "week",
                 value: "week"
             },
             {
-                text: i18next.t(DatapointInterval.MONTH),
+                text:  "month",
                 value: "month"
             },
             {
-                text: i18next.t(DatapointInterval.YEAR),
+                text: "year",
                 value: "year"
             }
         ];
@@ -932,10 +963,10 @@ export class OrChart extends translate(i18next)(LitElement) {
             });
 
             data = data.concat(cPredictedData);
-    
           
             data = data.concat(cData);
         }
+        
         Promise.all(data).then((completed=> {
             this._data = completed;
         }))
@@ -1060,7 +1091,7 @@ export class OrChart extends translate(i18next)(LitElement) {
                     if (typeof datapoint['y'] !== 'undefined') {
                         datapoint['y'] = Math.round(datapoint['y'] * 100) / 100
                     } else {
-                        delete datapoint['y']
+                        delete datapoint['y'];
                     }
                 });
                 return data;
